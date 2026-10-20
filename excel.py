@@ -32,7 +32,10 @@ def _unique(names,what):
     if not all(names) or len(set(names))!=len(names):
         raise ValueError(f'{what}: prazni ili ponovljeni nazivi.')
 
-def load_decision_matrix(path,sheet=0,skip_trailing_zero_rows=True):
+def load_decision_matrix(path,sheet=0,skip_all_zero=True,skip_trailing_zero_rows=None):
+    """Učitaj matricu; opcionalno ukloni potpuno nulte alternative i kriterije."""
+    if skip_trailing_zero_rows is not None:
+        skip_all_zero=skip_trailing_zero_rows  # Stari naziv argumenta ostaje podržan.
     raw=_rows(path,sheet)
     header=None
     for i,row in raw.iterrows():
@@ -56,20 +59,36 @@ def load_decision_matrix(path,sheet=0,skip_trailing_zero_rows=True):
             raise ValueError(f'Red {label} iza metapodataka nije dozvoljen.')
         if not label: raise ValueError('Alternativa ima prazan naziv.')
         names.append(label); records.append([_numeric(v) for v in values])
-    if skip_trailing_zero_rows:
-        skipped=[]
-        while len(records)>1 and all(value==0 for value in records[-1]):
-            records.pop(); skipped.append(names.pop())
-        if skipped:
-            warnings.warn('Preskočeni završni redovi sa samim nulama (prazni predlošci): '
-                          + ', '.join(reversed(skipped)) + '. Za zadržavanje koristite '
-                          'skip_trailing_zero_rows=False.',UserWarning,stacklevel=2)
     _unique(names,'Alternative')
     if t is None: raise ValueError('Nedostaje red smjera kriterija (max/min ili Cilj).')
     if not records: raise ValueError('Nema alternativa u matrici.')
-    d=directions(t,cols)
     x=pd.DataFrame(records,index=names,columns=cols)
     if not np.isfinite(x.to_numpy()).all(): raise ValueError('Matrica sadrži NaN/inf.')
+    if w is not None and (not np.isfinite(w.to_numpy()).all() or (w<0).any()
+                          or not np.isclose(w.sum(),1,atol=1e-8)):
+        raise ValueError('Težine u Excelu moraju biti nenegativne i imati zbir 1.')
+    if skip_all_zero:
+        zero_rows=x.eq(0).all(axis=1)
+        zero_cols=x.eq(0).all(axis=0)
+        if zero_rows.all() or zero_cols.all():
+            raise ValueError('Nakon uklanjanja potpuno nultih redova/kolona nema podataka za analizu.')
+        if zero_rows.any():
+            warnings.warn('Preskočeni redovi sa samim nulama: '
+                          + ', '.join(x.index[zero_rows]) + '.',UserWarning,stacklevel=2)
+        if zero_cols.any():
+            warnings.warn('Preskočene kolone sa samim nulama: '
+                          + ', '.join(x.columns[zero_cols]) + '.',UserWarning,stacklevel=2)
+        x=x.loc[~zero_rows,~zero_cols]
+        t=t.loc[x.columns]
+        if w is not None:
+            w=w.loc[x.columns]
+            if w.sum()<=0:
+                raise ValueError('Preostali kriteriji imaju ukupnu težinu 0; promijenite težine u Excelu.')
+            if zero_cols.any() and not np.isclose(w.sum(),1,atol=1e-8):
+                w=w/w.sum()
+                warnings.warn('Težine preostalih kriterija proporcionalno su normalizirane na zbir 1.',
+                              UserWarning,stacklevel=2)
+    d=directions(t,x.columns)
     result={'matrix':x,'types':d.map({1:'max',-1:'min'})}
     if w is not None: result['weights']=w
     return result
@@ -104,11 +123,11 @@ def load_judgment_matrix(path,sheet=0):
     x=_square(path,sheet,False)
     return {'matrix':x}
 
-def load_data(path,method,task=None,sheet=None,skip_trailing_zero_rows=True):
+def load_data(path,method,task=None,sheet=None,skip_all_zero=True,skip_trailing_zero_rows=None):
     """Izaberi Excel strukturu na osnovu metode, nikada prema nazivu alternativa."""
     rule,_=validate_request(method,task)
     kind=rule['input_type']; sheet=0 if sheet is None else sheet
-    if kind=='decision': result=load_decision_matrix(path,sheet,skip_trailing_zero_rows)
+    if kind=='decision': result=load_decision_matrix(path,sheet,skip_all_zero,skip_trailing_zero_rows)
     elif kind=='pairwise':
         result=load_pairwise_matrix(path,sheet)
         if task=='ranking':

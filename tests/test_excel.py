@@ -55,10 +55,31 @@ def test_cilj_tezina_and_trailing_zero_templates(tmp_path):
         ['Cilj','+','-'],
         ['Težina (w)',.6,.4],
     ]).to_excel(p,index=False,header=False)
-    with pytest.warns(UserWarning,match='prazni predlošci'):
+    with pytest.warns(UserWarning,match='samim nulama'):
         data=load_data(p,'saw')
     assert data['matrix'].shape==(2,2)
     assert list(data['matrix'].index)==['1','2']
     assert data['types'].to_dict()=={'C1':'max','C2':'min'}
     assert data['weights'].to_dict()=={'C1':.6,'C2':.4}
     assert load_data(p,'saw',skip_trailing_zero_rows=False)['matrix'].shape==(3,2)
+
+def test_all_zero_row_and_column_anywhere_with_partial_zeros(tmp_path):
+    p=tmp_path/'zeros.xlsx'
+    pd.DataFrame([
+        ['Alternative','C1','C2','C3'],
+        ['A',0,0,5],
+        ['Empty',0,0,0],
+        ['B',4,0,0],
+        ['Cilj','+','-', '+'],
+        ['Težina (w)',.4,.2,.4],
+    ]).to_excel(p,index=False,header=False)
+    with pytest.warns(UserWarning) as captured:
+        data=load_data(p,'saw')
+    assert len(captured)==3  # red, kolona i ponovna normalizacija težina
+    assert list(data['matrix'].index)==['A','B']
+    assert list(data['matrix'].columns)==['C1','C3']
+    assert data['matrix'].loc['A','C1']==0  # djelimične nule ostaju
+    assert data['matrix'].loc['B','C3']==0
+    assert data['types'].to_dict()=={'C1':'max','C3':'max'}
+    assert data['weights'].to_dict()==pytest.approx({'C1':.5,'C3':.5})
+    assert load_data(p,'saw',skip_all_zero=False)['matrix'].shape==(3,3)
