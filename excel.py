@@ -1,6 +1,8 @@
 """Čitanje odluka, recipročnih parova, uticaja i kvalitativnih sudova iz Excela."""
 from fractions import Fraction
 import re
+import unicodedata
+import warnings
 import numpy as np
 import pandas as pd
 from rules import validate_request
@@ -20,11 +22,17 @@ def _rows(path,sheet=0):
 def _label(v):
     return '' if pd.isna(v) else str(v).strip()
 
+def _metadata_key(label):
+    """Ujednači nazive metapodataka, uključujući č/ć/ž i oznaku (w)."""
+    ascii_label=''.join(c for c in unicodedata.normalize('NFKD',label.lower())
+                        if not unicodedata.combining(c))
+    return re.sub(r'[^a-z0-9]','',ascii_label)
+
 def _unique(names,what):
     if not all(names) or len(set(names))!=len(names):
         raise ValueError(f'{what}: prazni ili ponovljeni nazivi.')
 
-def load_decision_matrix(path,sheet=0):
+def load_decision_matrix(path,sheet=0,skip_trailing_zero_rows=True):
     raw=_rows(path,sheet)
     header=None
     for i,row in raw.iterrows():
@@ -37,19 +45,27 @@ def load_decision_matrix(path,sheet=0):
     for i in range(header+1,len(raw)):
         row=raw.iloc[i]; label=_label(row.iloc[0]); values=row.iloc[1:].tolist()
         if not label and all(pd.isna(v) for v in values): continue
-        key=label.lower().replace(' ','')
-        if key in {'max/min','maxmin','types','directions'}:
+        key=_metadata_key(label)
+        if key in {'maxmin','types','directions','cilj','goal','objective'}:
             if t is not None: raise ValueError('Više redova max/min.')
             t=pd.Series(values,index=cols); continue
-        if key in {'weights','weight','tezine','težine'}:
+        if key in {'weights','weight','tezine','tezina','tezinaw'}:
             if w is not None: raise ValueError('Više redova weights.')
             w=pd.Series([_numeric(v) for v in values],index=cols); continue
         if t is not None or w is not None:
             raise ValueError(f'Red {label} iza metapodataka nije dozvoljen.')
         if not label: raise ValueError('Alternativa ima prazan naziv.')
         names.append(label); records.append([_numeric(v) for v in values])
+    if skip_trailing_zero_rows:
+        skipped=[]
+        while len(records)>1 and all(value==0 for value in records[-1]):
+            records.pop(); skipped.append(names.pop())
+        if skipped:
+            warnings.warn('Preskočeni završni redovi sa samim nulama (prazni predlošci): '
+                          + ', '.join(reversed(skipped)) + '. Za zadržavanje koristite '
+                          'skip_trailing_zero_rows=False.',UserWarning,stacklevel=2)
     _unique(names,'Alternative')
-    if t is None: raise ValueError('Nedostaje red max/min za sve kriterije.')
+    if t is None: raise ValueError('Nedostaje red smjera kriterija (max/min ili Cilj).')
     if not records: raise ValueError('Nema alternativa u matrici.')
     d=directions(t,cols)
     x=pd.DataFrame(records,index=names,columns=cols)
@@ -88,11 +104,11 @@ def load_judgment_matrix(path,sheet=0):
     x=_square(path,sheet,False)
     return {'matrix':x}
 
-def load_data(path,method,task=None,sheet=None):
+def load_data(path,method,task=None,sheet=None,skip_trailing_zero_rows=True):
     """Izaberi Excel strukturu na osnovu metode, nikada prema nazivu alternativa."""
     rule,_=validate_request(method,task)
     kind=rule['input_type']; sheet=0 if sheet is None else sheet
-    if kind=='decision': result=load_decision_matrix(path,sheet)
+    if kind=='decision': result=load_decision_matrix(path,sheet,skip_trailing_zero_rows)
     elif kind=='pairwise':
         result=load_pairwise_matrix(path,sheet)
         if task=='ranking':

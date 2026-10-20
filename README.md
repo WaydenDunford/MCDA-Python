@@ -60,7 +60,7 @@ export_excel(sensitivity, 'results/sensitivity.xlsx')
 
 ## Excel formati
 
-`data/example.xlsx`: jedan red zaglavlja `Alternative, C1, C2, ...`, zatim proizvoljni nazivi alternativa, red `max/min` i opcioni red `weights`. Dozvoljeni smjerovi: `max`, `min`, `+`, `-`, `benefit`, `cost`. Prazni redovi se preskaču. Broj alternativa i kriterija nije ograničen fiksnom veličinom. Zaglavlje se traži po identifikatorima `C1`, `C2`, itd. Težine se nikad automatski ne zamjenjuju jednakim težinama.
+`data/example.xlsx`: jedan red zaglavlja `Alternative, C1, C2, ...`, zatim proizvoljni nazivi alternativa, red `max/min` ili `Cilj` i opcioni red `weights` ili `Težina (w)`. Dozvoljeni smjerovi: `max`, `min`, `+`, `-`, `benefit`, `cost`. Prazni redovi se preskaču. Završni redovi sa samim nulama preskaču se uz upozorenje; ako su stvarne alternative, pozovite `load_data(..., skip_trailing_zero_rows=False)`. Broj alternativa i kriterija nije ograničen fiksnom veličinom. Zaglavlje se traži po identifikatorima `C1`, `C2`, itd. Težine se nikad automatski ne zamjenjuju jednakim težinama.
 
 `data/ahp_example.xlsx`: list `Criteria` je kvadratna recipročna matrica kriterija. Za hijerarhijski ranking listovi `C1`, `C2`, ... sadrže recipročne matrice istih alternativa. `load_data(..., 'ahp', task='ranking', sheet='Criteria')` čita sve. Razlomci poput `1/3` su dopušteni.
 

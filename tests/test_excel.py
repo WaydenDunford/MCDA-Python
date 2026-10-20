@@ -43,3 +43,22 @@ def test_pairwise_fraction_and_orientation(tmp_path):
     assert x.loc['C2','C1']==pytest.approx(1/3)
     pd.DataFrame([[None,'C1','C2'],['C2',1,3],['C1','1/3',1]]).to_excel(p,index=False,header=False)
     with pytest.raises(ValueError,match='kvadratna'): load_data(p,'ahp')
+
+def test_cilj_tezina_and_trailing_zero_templates(tmp_path):
+    p=tmp_path/'podaci.xlsx'
+    pd.DataFrame([
+        [None,'Kriterij',None],
+        ['Rd.broj','C1','C2'],
+        [1,4,60],
+        [2,2,190],
+        [3,0,0],
+        ['Cilj','+','-'],
+        ['Težina (w)',.6,.4],
+    ]).to_excel(p,index=False,header=False)
+    with pytest.warns(UserWarning,match='prazni predlošci'):
+        data=load_data(p,'saw')
+    assert data['matrix'].shape==(2,2)
+    assert list(data['matrix'].index)==['1','2']
+    assert data['types'].to_dict()=={'C1':'max','C2':'min'}
+    assert data['weights'].to_dict()=={'C1':.6,'C2':.4}
+    assert load_data(p,'saw',skip_trailing_zero_rows=False)['matrix'].shape==(3,2)
