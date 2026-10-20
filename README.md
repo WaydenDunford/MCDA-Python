@@ -32,7 +32,7 @@ show_results(saw, show_steps=True)
 export_excel(saw, 'results/SAW_results.xlsx')
 
 topsis = run('topsis', **data, normalization='vector')
-entropy = run('entropy', matrix=data['matrix'], types=data['types'], task='weights')
+entropy = run('entropy', matrix=data['matrix'], types=data['types'], task='weights', normalization='sum')
 topsis_from_entropy = run('topsis', matrix=data['matrix'], types=data['types'],
                           weights=entropy['weights'], normalization='vector')
 
@@ -72,7 +72,7 @@ Ako se format ili orijentacija ne slažu s odabranom metodom, čitač vraća gre
 
 ## Metode i matematičke varijante
 
-Svaka metoda prima `matrix`; standardne rangirne metode primaju `types` i `weights` sa zbirom 1. `rules.py` navodi zadatke, ulaznu strukturu i podržane vanjske normalizacije. Za metode s izvornom internom formulom vanjska normalizacija nije dopuštena.
+Svaka metoda prima `matrix`; standardne rangirne metode primaju `types` i `weights` sa zbirom 1. `rules.py` navodi zadatke, ulaznu strukturu i podržane normalizacije. Entropija podržava `sum` i `minmax`; bez izbora zadržava dosadašnju `minmax` transformaciju. Druge metode s izvornom internom formulom ne primaju vanjsku normalizaciju.
 
 | Metoda | Zadatak i varijanta | Glavni međukoraci i izlaz | Uslovi |
 |---|---|---|---|
@@ -98,7 +98,7 @@ Svaka metoda prima `matrix`; standardne rangirne metode primaju `types` i `weigh
 | VIKOR | S, R, Q, `v=.5` | best/worst, jaz, kompromis i dva uslova | nekonstantni kriteriji |
 | WASPAS | `λ` ponderisani zbir + `(1−λ)` proizvod | obje komponente, ukupna ocjena | pozitivni ulazi; `λ∈[0,1]` |
 
-Normalizacije u `normalizations/`: `max` koristi `x/max` i `min/x`; `minmax` rastuću korisnost 0–1; `sum` koristi `x/Σx` i `(1/x)/Σ(1/x)`; `vector` koristi `x/||x||` i `(1/x)/||1/x||`; `nonlinear` potencira omjere iz `max` eksponentom `p>0` (podrazumijevano 2); `ln` koristi `ln(x)/Σln(x)` za benefit i `(1−ln(x)/Σln(x))/(m−1)` za cost. Logaritamska varijanta zahtijeva `x>1` i barem dvije alternative. Potencijalna i logaritamska transformacija su ponuđene samostalno; nisu nametnute metodama koje imaju vlastitu normalizaciju. SAW prihvata `max`, `minmax`, `sum`, `vector`, `nonlinear`; TOPSIS samo svoju vektorsku normalizaciju.
+Normalizacije u `normalizations/`: `max` koristi `x/max` i `min/x`; `minmax` rastuću korisnost 0–1; `sum` koristi `x/Σx` i `(1/x)/Σ(1/x)`; `vector` koristi `x/||x||` i `(1/x)/||1/x||`; `nonlinear` potencira omjere iz `max` eksponentom `p>0` (podrazumijevano 2); `ln` koristi `ln(x)/Σln(x)` za benefit i `(1−ln(x)/Σln(x))/(m−1)` za cost. Logaritamska varijanta zahtijeva `x>1` i barem dvije alternative. Potencijalna i logaritamska transformacija su ponuđene samostalno; nisu nametnute metodama koje imaju vlastitu normalizaciju. SAW prihvata `max`, `minmax`, `sum`, `vector`, `nonlinear`; TOPSIS samo svoju vektorsku normalizaciju. Entropija prihvata `sum` ili `minmax`; nakon transformacije svaki stupac pretvara u udjele sa zbirom 1. Za `sum` svi aktivni ulazi moraju biti strogo pozitivni.
 
 MEREC slijedi originalno obrnuto omjerno skaliranje: benefit `min(x)/x`, cost `x/max(x)`. AHP rangiranje koristi glavni svojstveni vektor, a kolonski normalizirana matrica služi samo za pregled. MACBETH LP traži numeričke razlike najmanje 1 za sve pozitivne sudove i najmanje 1 veće razlike za višu kategoriju; skala se preslikava na 0–100. Ovaj LP daje konzistentnu skalu, ali ne zamjenjuje četiri LP koraka i interakciju originalnog softvera.
 

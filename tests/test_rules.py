@@ -10,6 +10,7 @@ def test_introspection():
     assert len(list_methods())==21
     assert 'ahp' in list_methods('weights')
     assert list_normalizations('topsis')==['vector']
+    assert list_normalizations('entropy')==['sum','minmax']
     assert get_method_info('dematel')['input_type']=='influence'
 
 def test_rejection():

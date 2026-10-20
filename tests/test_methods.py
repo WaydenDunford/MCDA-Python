@@ -14,6 +14,22 @@ def test_saw_reference():
     assert list(r['ranking'])==[3,1,2]
     assert np.allclose(r['weighted'].loc['A'],[.25,.25])
 
+def test_entropy_sum_matches_excel_reference():
+    x=pd.DataFrame({'C1':[30,100,50,300], 'C2':[.1,.7,1,2],
+                    'C3':[1,1,2,3], 'C4':[20,40,10,35]},
+                   index=['1','2','3','4'])
+    types={'C1':'min','C2':'min','C3':'max','C4':'min'}
+    result=run('entropy',x,types,normalization='sum')
+    assert result['normalization']=='sum'
+    assert np.allclose(result['proportions'].loc['1'],
+                       [.5,.7734806629834254,1/7, .2456140350877192])
+    assert np.allclose(result['weights'],
+                       [.2155062172636474,.5476167967109513,
+                        .09643205471164833,.14044493131375285])
+    assert not np.allclose(result['weights'],run('entropy',x,types)['weights'])
+    assert np.allclose(run('entropy',x,types,normalization='minmax')['weights'],
+                       run('entropy',x,types)['weights'])
+
 def test_topsis_reference():
     r=run('topsis',X.iloc[:2],T,W,normalization='vector')
     assert np.allclose(r['scores'],[0,1])

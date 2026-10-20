@@ -10,6 +10,7 @@ RULES.update({m: dict(tasks=['weights'], input_type='decision', requires_weights
                       computes_weights=True, normalizations=[], native_normalization=True,
                       required_parameters=[], output='weights') for m in _WEIGHT})
 RULES['saw'].update(normalizations=['max','minmax','sum','vector','nonlinear'], native_normalization=False)
+RULES['entropy'].update(normalizations=['sum','minmax'])
 RULES['topsis'].update(normalizations=['vector'], native_normalization=False)
 RULES['ahp'] = dict(tasks=['weights','ranking'], input_type='pairwise', requires_weights=False,
                     computes_weights=True, normalizations=[], native_normalization=True,
