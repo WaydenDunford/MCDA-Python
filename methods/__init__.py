@@ -1,0 +1,1 @@
+"""Pojedinačne MCDA metode."""

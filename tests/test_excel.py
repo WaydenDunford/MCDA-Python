@@ -1,0 +1,45 @@
+import pandas as pd
+import pytest
+from excel import load_data
+from engine import run
+from pathlib import Path
+
+DATA=Path(__file__).resolve().parents[1]/'data'
+
+def test_examples():
+    d=load_data(DATA/'example.xlsx','saw')
+    assert list(d['matrix'].index)==['Machine 1','Toyota','Supplier A']
+    assert len(d['weights'])==3
+    a=load_data(DATA/'ahp_example.xlsx','ahp',task='ranking')
+    assert set(a['alternatives'])=={'C1','C2','C3'}
+    hierarchy=run('ahp',**a,task='ranking')
+    assert list(hierarchy['ranking'])==[1,2,3]
+    assert load_data(DATA/'dematel_example.xlsx','dematel')['matrix'].shape==(3,3)
+    assert load_data(DATA/'macbeth_example.xlsx','macbeth')['matrix'].shape==(3,3)
+
+def test_missing_weights_and_separator(tmp_path):
+    p=tmp_path/'x.xlsx'
+    pd.DataFrame([['Alternative','C1','C2'],['A',1,2],[None,None,None],['B',2,3],
+                  ['max/min','max','min']]).to_excel(p,index=False,header=False)
+    d=load_data(p,'saw')
+    assert 'weights' not in d and d['matrix'].shape==(2,2)
+
+def test_duplicate_alternative(tmp_path):
+    p=tmp_path/'x.xlsx'
+    pd.DataFrame([['Alternative','C1'],['A',1],['A',2],['max/min','max']]).to_excel(p,index=False,header=False)
+    with pytest.raises(ValueError,match='ponovljeni'): load_data(p,'saw')
+
+def test_invalid_value_and_duplicate_criterion(tmp_path):
+    p=tmp_path/'bad.xlsx'
+    pd.DataFrame([['Alternative','C1','C2'],['A','text',2],['max/min','max','min']]).to_excel(p,index=False,header=False)
+    with pytest.raises(ValueError,match='brojčana'): load_data(p,'saw')
+    pd.DataFrame([['Alternative','C1','C1'],['A',1,2],['max/min','max','min']]).to_excel(p,index=False,header=False)
+    with pytest.raises(ValueError,match='ponovljeni'): load_data(p,'saw')
+
+def test_pairwise_fraction_and_orientation(tmp_path):
+    p=tmp_path/'pair.xlsx'
+    pd.DataFrame([[None,'C1','C2'],['C1',1,3],['C2','1/3',1]]).to_excel(p,index=False,header=False)
+    x=load_data(p,'ahp')['matrix']
+    assert x.loc['C2','C1']==pytest.approx(1/3)
+    pd.DataFrame([[None,'C1','C2'],['C2',1,3],['C1','1/3',1]]).to_excel(p,index=False,header=False)
+    with pytest.raises(ValueError,match='kvadratna'): load_data(p,'ahp')
